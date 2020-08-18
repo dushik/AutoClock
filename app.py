@@ -138,7 +138,7 @@ if __name__ =='__main__':
         while not(user_info['clock_flag']):
             clock_job()
     scheduler = BlockingScheduler()
-    scheduler.add_job(scheduler_job, 'cron', day_of_week='1-7', hour=8, minute=30)
+    scheduler.add_job(scheduler_job, 'cron', day_of_week='0-6', hour=8, minute=30)
     # scheduler.add_job(scheduler_job, 'interval', seconds=5)
     scheduler.start()
 
