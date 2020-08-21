@@ -151,11 +151,9 @@ if __name__ =='__main__':
             clock.autoKa()
             flag=True
             message='{} 打卡成功~'.format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
-            print(message)
         else:
             flag=False
             message='{} 打卡失败，失败信息{}'.format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"),login_status)
-            print(message)
         requests.request(
             method='post',
             url='https://sc.ftqq.com/SCU62476T685cff44078a2f6021c6xxxxxxxxxxxxxxxxxxxxxxxxxx.send', #server酱微信消息推送，可选。此处应填自己的SRTKEY
@@ -169,8 +167,6 @@ if __name__ =='__main__':
         flag=False
         while not(flag):
             flag=clock_job(flag)
-            print(flag)
-    scheduler_job()
     scheduler = BlockingScheduler()
     scheduler.add_job(scheduler_job, 'cron', day_of_week='0-6', hour=9, minute=00)
     # scheduler.add_job(scheduler_job, 'interval', seconds=5)
