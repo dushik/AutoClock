@@ -14,6 +14,7 @@ from bs4 import BeautifulSoup
 from apscheduler.schedulers.blocking import BlockingScheduler
 from datetime import datetime
 import time
+import json
 class login(object):
     def __init__(self,user_info):
         self.headers={
@@ -23,15 +24,13 @@ class login(object):
         self.report_url='http://appservice.lzu.edu.cn/dailyReportAll/api/grtbMrsb/submit'
         self.st_url='http://my.lzu.edu.cn/api/getST'
         self.auth_url='http://appservice.lzu.edu.cn/dailyReportAll/api/auth/login'
+        self.md5_url='http://appservice.lzu.edu.cn/dailyReportAll/api/encryption/getMD5'
+        self.info_url='http://appservice.lzu.edu.cn/dailyReportAll/api/grtbMrsb/getInfo'
         self.session=requests.Session()
         self.session.headers=self.headers
-        self.name=user_info['name']
         self.username=user_info['username']
         self.password=user_info['password']
         self.xykh=user_info['xykh']
-        self.province=user_info['province']
-        self.city=user_info['city']
-        self.area=user_info['area']
     def getLtAndCookie(self):
         response=self.session.get(url=self.login_url)
         html=response.text
@@ -62,25 +61,59 @@ class login(object):
             self.st=eval(stResponse.text)['data']
         except KeyError as ke:
             print('error:获取权限验证失败 {}'.format(ke))
-            return -1
+            return {'code':-1,'message':'权限验证失败'}
         time.sleep(2)
         authResponse=self.session.get(
             url='{}?st={}&PersonID={}'.format(self.auth_url,self.st,self.xykh)
         )
         self.user=eval(authResponse.text)
         print('{} 用户权限验证状态 {}'.format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"),authResponse.status_code))
+        md5Rsponse=self.session.post(
+            url=self.md5_url,
+            data={'cardId':self.xykh},
+            headers={
+                'Authorization': self.user['data']['accessToken']
+            }
+        )
+        try:
+            self.md5=eval(md5Rsponse.text)['data']
+        except KeyError as ke:
+            print('error:获取密钥失败 {}'.format(ke))
+            return {'code':-1,'message':'获取密钥失败'}
+        infoResponse=self.session.post(
+            url=self.info_url,
+            data={
+                'cardId':self.xykh,
+                'md5':self.md5
+            },
+            headers={
+                'Authorization': self.user['data']['accessToken']
+            }
+        )
+        try:
+            infoText=json.loads(infoResponse.text)
+            self.bh=infoText['data']['list'][0]['bh']
+            self.xm=infoText['data']['list'][0]['xm']
+            self.szsf=infoText['data']['list'][0]['szsf']
+            self.szds=infoText['data']['list'][0]['szds']
+            self.szxq=infoText['data']['list'][0]['szxq']
+            self.sbr=infoText['data']['list'][0]['sbr']
+        except KeyError as ke:
+            print('error:获取用户信息失败 {}'.format(ke))
+            return {'code':-1,'message':'获取用户信息失败'}
+        print('{} 用户信息获取状态 {}'.format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"),infoResponse.status_code))
         time.sleep(2)
-        return 0
+        return {'code':1,'message':'成功获取用户登录信息'}
     def autoKa(self):
         formData={
-            'bh': 'ACB14B497C43A78BE053831510AC7612',
+            'bh': self.bh,
             'xykh': self.xykh,
             'twfw': '0',
             'sfzx': '0',
             'sfgl': '0',
-            'szsf': self.province,
-            'szds': self.city,
-            'szxq': self.area,
+            'szsf': self.szsf,
+            'szds': self.szds,
+            'szxq': self.szxq,
             'sfcg': '0',
             'cgdd': '',
             'gldd': '',
@@ -94,7 +127,7 @@ class login(object):
             'zcwd': '0.0',
             'zwwd': '0.0',
             'wswd': '0.0',
-            'sbr': self.name,
+            'sbr': self.sbr,
             'sjd': ''
         }
         response=self.session.post(
@@ -104,41 +137,42 @@ class login(object):
                 'Authorization': self.user['data']['accessToken']
             }
         ) 
-        print('{} 当前用户打卡状态 {}'.format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"),response.text))
+        print('{} 用户打卡返回信息 {}'.format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"),response.text))
 if __name__ =='__main__':
     user_info={
-        'name':'杜世康', #姓名
-        'username':' ', #信息门户登录邮箱名
-        'password':' ', #信息门户登录密码
-        'xykh':' ', #学号
-        'province':'广东省', #打卡所在省
-        'city':'广州市', #打卡所在市
-        'area':'番禺区', #打卡所在区
-        'clock_flag': False
+        'username':'xxxx',     #信息门户登录邮箱名 xxxx@lzu.edu.cn
+        'password':'password', #信息门户登录密码  password
+        'xykh':'22019xxxxxxx', #校园卡号         22019xxxxxxx
     }
-
-    def clock_job():
+    def clock_job(flag):
         clock=login(user_info)
-        if clock.getLoginInformation()==0:
+        login_status=clock.getLoginInformation()
+        if login_status['code']==1:
             clock.autoKa()
-            user_info['clock_flag']=True
+            flag=True
             message='{} 打卡成功~'.format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            print(message)
         else:
-            message='{} 打卡失败~'.format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"))
+            flag=False
+            message='{} 打卡失败，失败信息{}'.format(datetime.now().strftime("%Y-%m-%d %H:%M:%S"),login_status)
+            print(message)
         requests.request(
             method='post',
-            url='https://sc.ftqq.com/SCU62476T685cffHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHHH.send', #server酱微信消息推送，可选。此处应填自己的SRTKEY
+            url='https://sc.ftqq.com/SCU62476T685cff44078a2f6021c6xxxxxxxxxxxxxxxxxxxxxxxxxx.send', #server酱微信消息推送，可选。此处应填自己的SRTKEY
             params={
                 'text':'主人，您有新的打卡消息~',
                 'desp': message
             }
         )
+        return flag
     def scheduler_job():
-        print(user_info['clock_flag'])
-        while not(user_info['clock_flag']):
-            clock_job()
+        flag=False
+        while not(flag):
+            flag=clock_job(flag)
+            print(flag)
+    scheduler_job()
     scheduler = BlockingScheduler()
-    scheduler.add_job(scheduler_job, 'cron', day_of_week='1-7', hour=8, minute=30)
+    scheduler.add_job(scheduler_job, 'cron', day_of_week='0-6', hour=9, minute=00)
     # scheduler.add_job(scheduler_job, 'interval', seconds=5)
     scheduler.start()
 
