@@ -1,4 +1,5 @@
 ## 兰大每日健康打卡
 - 定时每日健康打卡
 - 打卡结果微信推送
-<font color='red'> 兰大信息门户使用谷歌recaptcha v3升级了人机验证，目前无法绕过该验证机制，项目暂时废弃。 </font>
+
+<font color='red'> 由于无法绕过谷歌recaptcha v3模拟登录，项目暂时废弃。 </font>
